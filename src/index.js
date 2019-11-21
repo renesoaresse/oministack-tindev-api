@@ -1,8 +1,19 @@
 const express = require('express')
 const mongoose = require('mongoose')
+
 const cors = require('cors')
 
-const server = express()
+const app = express()
+const server = require('http').Server(app)
+const io = require('socket.io')(server)
+
+const connectUser = {}
+
+io.on('connection', socket => {
+  const { user } = socket.handshake.query
+
+  connectUser[user] = socket.id
+})
 
 mongoose.connect('mongodb://localhost:27017/tindev', {
   useCreateIndex: true,
@@ -10,10 +21,17 @@ mongoose.connect('mongodb://localhost:27017/tindev', {
   useUnifiedTopology: true
 })
 
-server.disable('x-powered-by')
+app.disable('x-powered-by')
 
-server.use(cors())
-server.use(express.json())
-server.use(require('./routes'))
+app.use((req, res, next) => {
+  req.io = io
+  req.connectUser = connectUser
+
+  return next()
+})
+
+app.use(cors())
+app.use(express.json())
+app.use(require('./routes'))
 
 server.listen(3333)
